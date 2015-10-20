@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>TurtleTube - Basic Test</title>
+    <!-- Load the Shaka Player library. -->
+    <script src="shaka-player.compiled.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r73/three.min.js"></script>
+  </head>
+  <body>
+    <div id="container"></div>
+    <!-- <video id="video" width="640" height="480" crossorigin="anonymous" controls></video> -->
+    
+  </body>
+  <script>
+    var camera, scene, renderer;
+    var video = document.createElement( 'video' );
+
+    var texture_placeholder,
+    isUserInteracting = false,
+    onMouseDownMouseX = 0, onMouseDownMouseY = 0,
+    lon = 0, onMouseDownLon = 0,
+    lat = 0, onMouseDownLat = 0,
+    phi = 0, theta = 0;
+
+    function init() {
+
+      var container, mesh;
+
+      container = document.getElementById( 'container' );
+
+      camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 1100 );
+      camera.target = new THREE.Vector3( 0, 0, 0 );
+
+      scene = new THREE.Scene();
+
+      var geometry = new THREE.SphereGeometry( 500, 60, 40 );
+      geometry.scale( - 1, 1, 1 );
+
+      //var video = document.getElementById( 'video' );
+      // video.width = 640;
+      // video.height = 360;
+      // video.autoplay = true;
+      // video.loop = true;
+      // video.src = "textures/pano.webm";
+
+      var texture = new THREE.VideoTexture( video );
+      texture.minFilter = THREE.LinearFilter;
+
+      var material   = new THREE.MeshBasicMaterial( { map : texture } );
+
+      mesh = new THREE.Mesh( geometry, material );
+
+      scene.add( mesh );
+
+      renderer = new THREE.WebGLRenderer();
+      renderer.setPixelRatio( window.devicePixelRatio );
+      renderer.setSize( window.innerWidth, window.innerHeight );
+      container.appendChild( renderer.domElement );
+
+      document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+      document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+      document.addEventListener( 'mouseup', onDocumentMouseUp, false );
+      document.addEventListener( 'mousewheel', onDocumentMouseWheel, false );
+      document.addEventListener( 'MozMousePixelScroll', onDocumentMouseWheel, false);
+
+      //
+
+      window.addEventListener( 'resize', onWindowResize, false );
+
+    }
+
+    function onWindowResize() {
+
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize( window.innerWidth, window.innerHeight );
+
+    }
+
+    function onDocumentMouseDown( event ) {
+
+      event.preventDefault();
+
+      isUserInteracting = true;
+
+      onPointerDownPointerX = event.clientX;
+      onPointerDownPointerY = event.clientY;
+
+      onPointerDownLon = lon;
+      onPointerDownLat = lat;
+
+    }
+
+    function onDocumentMouseMove( event ) {
+
+      if ( isUserInteracting === true ) {
+
+        lon = ( onPointerDownPointerX - event.clientX ) * 0.1 + onPointerDownLon;
+        lat = ( event.clientY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
+
+      }
+
+    }
+
+    function onDocumentMouseUp( event ) {
+
+      isUserInteracting = false;
+
+    }
+
+    function onDocumentMouseWheel( event ) {
+
+      // WebKit
+
+      if ( event.wheelDeltaY ) {
+
+        camera.fov -= event.wheelDeltaY * 0.05;
+
+      // Opera / Explorer 9
+
+      } else if ( event.wheelDelta ) {
+
+        camera.fov -= event.wheelDelta * 0.05;
+
+      // Firefox
+
+      } else if ( event.detail ) {
+
+        camera.fov += event.detail * 1.0;
+
+      }
+
+      camera.updateProjectionMatrix();
+
+    }
+
+    function animate() {
+
+      requestAnimationFrame( animate );
+      update();
+
+    }
+
+    function update() {
+
+      lat = Math.max( - 85, Math.min( 85, lat ) );
+      phi = THREE.Math.degToRad( 90 - lat );
+      theta = THREE.Math.degToRad( lon );
+
+      camera.target.x = 500 * Math.sin( phi ) * Math.cos( theta );
+      camera.target.y = 500 * Math.cos( phi );
+      camera.target.z = 500 * Math.sin( phi ) * Math.sin( theta );
+
+      camera.lookAt( camera.target );
+
+      /*
+      // distortion
+      camera.position.copy( camera.target ).negate();
+      */
+
+      renderer.render( scene, camera );
+
+    }
+
+    function initPlayer() {
+      // Install polyfills.
+      shaka.polyfill.installAll();
+
+      // Find the video element.
+      //var video = document.getElementById('video');
+
+      // Construct a Player to wrap around it.
+      var player = new shaka.player.Player(video);
+
+      // Attach the player to the window so that it can be easily debugged.
+      window.player = player;
+
+      // Listen for errors from the Player.
+      player.addEventListener('error', function(event) {
+        console.error(event);
+      });
+
+      // Construct a DashVideoSource to represent the DASH manifest.
+      // var mpdUrl = 'http://182.92.4.139:1935/vod/mp4:e2.mp4/manifest.mpd';
+      var mpdUrl = 'http://182.92.4.139:1935/live/hdmi/manifest.mpd';
+      var estimator = new shaka.util.EWMABandwidthEstimator();
+      var source = new shaka.player.DashVideoSource(mpdUrl, null, estimator);
+
+      // Load the source into the Player.
+      player.load(source).then(function() {
+        init();
+        animate();
+        video.play();
+      });
+    }
+    document.addEventListener('DOMContentLoaded', initPlayer);
+  </script>
+</html>
